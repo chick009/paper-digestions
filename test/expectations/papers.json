@@ -1,0 +1,118 @@
+{
+  "model": "x-ai/grok-4.3",
+  "vision_model": "openai/gpt-5.4-mini",
+  "judge_model": "x-ai/grok-4.3",
+  "cases": [
+    {
+      "id": "rethinking-generalization-reasoning-sft",
+      "title": "Rethinking Generalization in Reasoning SFT: A Conditional Analysis on Optimization, Data, and Model Capability",
+      "pdf_path": "test/pdfs/2604.06628v1.pdf",
+      "final_blog_url": "https://johnny-yik.com/papers/975e8534-7971-4ee4-87e9-ec66e445cc52",
+      "final_blog_markdown": "# Rethinking Generalization in Reasoning SFT: A Conditional Analysis on Optimization, Data, and Model Capability\n\nApril 14, 2026\n\n[View Original Paper](https://arxiv.org/abs/2604.06628)\n\n## The Central Claim\n\nThe paper argues that prior conclusions declaring SFT incapable of cross-domain generalization were artifacts of flawed experimental setups — specifically, short training durations, low-quality data, or weak base models — rather than intrinsic limitations of SFT itself. The key reframing: the right question is not \"does SFT generalize?\" but \"under what conditions and at what cost?\"\n\n(1) Repeated SFT Exposure Beats One-Pass Coverage Long-CoT data is hard to internalize in a single pass — models benefit far more from repeated exposure than from seeing more data once. This is because early training stages only capture surface patterns (verbose outputs), and extended optimization is needed to internalize genuine reasoning procedures.\n\nResults: Under a fixed 640-step budget, training on 2,500 examples for 8 epochs (Setting 2) substantially outperformed training on 20,000 examples for 1 epoch (Setting 3) across all benchmarks. For instance, on AIME24, Setting 2 scored 61.7 vs. Setting 3's 48.0, and on LCB v2, 51.7 vs. 45.4.\n\n(2) Data Quality Matters — Long CoT Traces Are Essential Not only must data be correct, it must contain verified long-CoT traces with structured reasoning procedures (backtracking, decomposition, verification). Low-quality or CoT-free data actively hurts generalization.\n\nResults: On Qwen3-14B-Base: NuminaMath (human-crafted, mixed quality, no CoT): AIME24 dropped to 14.0 (below base 14.7), LCB v2 collapsed to 20.4 (vs. base 37.5) — worse than no training Countdown-CoT (a toy arithmetic game, but with long CoT): AIME24 jumped to 41.7, LCB v2 to 43.8, GPQA-D to 53.0 — outperforming even the no-CoT math dataset, showing that procedural reasoning structure matters more than domain content\n\n(3) Larger Models Internalize CoT Patterns; Smaller Ones Only Mimic Verbosity Given identical data and training, larger models learn transferable reasoning procedures while smaller models get stuck imitating the surface form of long CoT — producing verbose but shallow outputs.\n\nResults: Training the Qwen3 model family on the same Math-CoT-20k: 14B: Strong dip-and-recovery trajectory, broad OOD gains across code, science, and instruction following 1.7B: Marginal or negative gains on all benchmarks even at the final checkpoint; response length remained bloated throughout training The mechanism is revealed by a log-probability gap analysis: the 14B model held a decisive advantage (>1.0 log-prob gap) on 9.3% of tokens — specifically CoT structural tokens like \"therefore,\" \"alternatively,\" \"wait,\" and \"backtrack.\" The 1.7B model showed essentially no advantage on any token category, confirming it never learned the procedural backbone of chain-of-thought reasoning.\n\n(4) Generalization Is Asymmetric — Safety Degrades via Self-Rationalization The same procedural problem-solving prior that enables cross-domain reasoning also causes models to reason their way around safety guardrails during the extended thinking process.\n\nResults: Evaluating attack success rate (ASR) on HEx-PHI: After Math-CoT-20k training: ASR increased substantially across all three tested models (Qwen3-14B, 8B, InternLM2.5-20B) After Math-NoCoT-20k training (same queries and answers, CoT stripped): ASR barely changed Since the only difference is the presence of CoT traces, the safety degradation is causally attributed to procedural patterns, not math content. Qualitatively, base models issued short direct refusals; post-CoT-SFT models began self-rationalizing during (e.g., \"maybe this is for educational purposes...\") and ultimately produced harmful content wrapped in caveats — treating the refusal policy itself as an obstacle to route around.",
+      "questions": [
+        "Explain the core claims from this paper and the supporting evidence.",
+        "Summarize the paper more concisely than the current blog.",
+        "Give results for each major claim."
+      ],
+      "expected_claims": [
+        {
+          "claim": "Repetitive SFT training is more useful than a one-pass SFT regime.",
+          "required_results": [
+            "Identify the experiment or ablation comparing repetitive training with one-pass training.",
+            "Report the direction and size of the claimed improvement when available."
+          ]
+        },
+        {
+          "claim": "Training data quality is important, especially when examples include chain-of-thought reasoning.",
+          "required_results": [
+            "Explain what data-quality conditions were varied.",
+            "Report evidence that CoT-style data matters for generalization."
+          ]
+        },
+        {
+          "claim": "Larger models tend to obtain higher out-of-distribution gains while smaller models fail, linked to a log-probability gap on tokens forming the backbone of CoT.",
+          "required_results": [
+            "Describe the model-size comparison.",
+            "Explain the log-probability gap mechanism in plain language.",
+            "Report the OOD result pattern for larger versus smaller models."
+          ]
+        },
+        {
+          "claim": "The same generalization behavior can create safety risks because models may self-rationalize unsafe content.",
+          "required_results": [
+            "Identify the safety experiment or analysis.",
+            "Explain how self-rationalization appears in the paper's evidence."
+          ]
+        }
+      ],
+      "expected_sections": [
+        "Core claims",
+        "Supporting evidence",
+        "Claim-by-claim results",
+        "Safety implications",
+        "Concise final summary"
+      ]
+    },
+    {
+      "id": "recursive-multi-agent-systems",
+      "title": "Recursive Multi-Agent Systems",
+      "pdf_path": "test/pdfs/2604.25917v1.pdf",
+      "final_blog_url": "https://johnny-yik.com/papers/3906d893-7fd6-4b25-b820-daf58d405256",
+      "final_blog_markdown": "# Recursive Multi-Agent Systems\n\nMay 3, 2026\n\n[View Original Paper](https://arxiv.org/abs/2604.25917)\n\n# Recursive Multi-Agent Systems (RecursiveMAS)\n\nA new scaling axis for multi-agent collaboration — refining answers in latent space rather than through text.\n\n## 1. Core Intuitions\n\nRecursiveMAS builds on two converging ideas from recent literature:\n\nLooped Transformers (e.g., LoopLM) showed that reusing the same model weights across multiple forward passes — rather than just once — allows a model to iteratively refine its reasoning. Each additional pass deepens the computation without adding parameters.\n\nLatent-space communication showed that passing raw hidden-state embeddings between model components, rather than decoded text, preserves richer semantic content. Text decoding is lossy: quantizing a continuous 4096-dimensional vector into a single discrete token throws away enormous amounts of information.\n\nRecursiveMAS unifies both ideas and extends them to multi-agent systems: instead of a single model looping over itself, a chain of heterogeneous agents loops over each other, each refining the collective latent state without ever producing intermediate text. The system as a whole behaves like one large recursive computation graph.\n\n## 2. RecursiveLink — Connecting Agents via Residuals\n\nThe entire wiring between agents is handled by a single lightweight module: RecursiveLink, a 2-layer residual MLP. It exists in two forms depending on where the transition happens.\n\n### Inner Link — Intra-Agent Latent Refinement\n\nEach agent runs for mmm forward steps without decoding to text. After each step, the last-layer hidden state h_t is fed back as the next input via the inner link:\n\nR_in(h_t) = h_t + W_2(phi(W_1 h_t)) -> e_{t+1}\n\nThis generates a sequence of latent thoughts entirely in continuous space — the agent thinks deeper without speaking.\n\nInner-loop training trains each agent's R_in independently and in parallel using a cosine similarity regression loss — the target is the ground-truth answer passed through the agent's own input embedding layer:\n\nL_in = 1 - sim(R_in(H), Emb_i(y))\n\nThis warm-starts each agent to produce semantically meaningful latent thoughts before cross-agent training begins.\n\n### Outer Link — Cross-Agent Latent Transfer\n\nOnce an agent finishes its full latent generation, its entire thought sequence H_Ai is projected into the next agent's input embedding space via the outer link:\n\nR_out(h) = W_3 h + W_2(phi(W_1 h))\n\nThe extra W_3 projection in the residual branch handles dimension mismatches between heterogeneous models. This transformed sequence is prepended as a context prefix to the next agent's input — injected at the input embedding level, not mid-layer.\n\nAfter the last agent finishes, its latent outputs loop back to the first agent, closing the recursive loop. Only at the final recursion round does any agent decode text.\n\nOuter-loop training then optimizes all outer links jointly with a cross-entropy loss on the final text output, back-propagating through the full recursive computation graph:\n\nL_out = CE(S_n | S_{n-1}, ..., S_1, x, y)\n\nCrucially, all base LLM weights are frozen throughout — only W_1, W_2, W_3 are updated, about 13M parameters total.\n\n## 3. Collaboration Patterns\n\nRecursiveMAS is structure-agnostic and was validated across four common MAS topologies:\n\n| Pattern | Agents | Mechanism |\n| --- | --- | --- |\n| Sequential | Planner → Critic → Solver | Linear pipeline; progressively decomposes, critiques, and solves |\n| Mixture | Math / Science / Code Specialists + Summarizer | Parallel domain experts; Summarizer aggregates latent outputs |\n| Distillation | Expert (9B) + Learner (4B) | Larger expert guides smaller learner via latent transfer; retains 1.5× speed advantage |\n| Deliberation | Reflector + Tool-Caller | Iterative reflection + external tool use (Python / search APIs) |\n\n## 4. Results & Efficiency\n\nEvaluated across 9 benchmarks spanning math, science, medicine, code, and search — with agents from Qwen3, LLaMA-3, Gemma3, and Mistral families:\n\nAccuracy — RecursiveMAS achieves an average of +8.3% over the strongest per-task baseline at r=3, with the gap widening as recursion deepens (+8.1% at r=1, +19.6% at r=2, +20.2% at r=3).\n\nInference speed — compared to an equivalent text-based recursive MAS:\n\n- r=1: 1.2× faster\n- r=2: 1.9× faster\n- r=3: 2.4× faster\n\nThe efficiency gain amplifies with depth because text-based MAS must decode and re-encode at every round, while RecursiveMAS skips this for all intermediate rounds entirely.\n\nToken reduction — for the same reason, token usage drops dramatically:\n\n- r=1: 34.6% fewer tokens\n- r=3: 75.6% fewer tokens\n\nTraining-inference scaling law — deeper training and deeper inference compound: training more rounds teaches the system to produce refinement-ready latent states, and additional inference rounds then exploit that structure for further gains at test time.\n\nAll base model weights remain frozen. Only the ~13M RecursiveLink parameters are trained, making RecursiveMAS cheaper to adapt than LoRA or full fine-tuning of any individual agent.",
+      "questions": [
+        "Explain the core intuitions, methodology, and training for Recursive MAS.",
+        "Explain inner residual links versus outer residual links across agents.",
+        "Clarify whether planner layer embeddings feed generator layer residuals and then critic layer residuals.",
+        "Explain inner recursion loops, outer latent transfer, and whether inner and outer training can be separated.",
+        "Explain how the paper determines training rounds or recursion stopping.",
+        "Explain the theoretical backing for the Recursive MAS design."
+      ],
+      "expected_claims": [
+        {
+          "claim": "Recursive MAS combines ideas from looped Transformers and latent transfer between agents.",
+          "required_results": [
+            "Connect looped Transformers to iterative latent refinement.",
+            "Connect latent transfer to preserving intermediate agent thoughts."
+          ]
+        },
+        {
+          "claim": "Inner recursive links refine an agent's own latent embedding across repeated passes.",
+          "required_results": [
+            "Explain how inner recursion is implemented.",
+            "Explain the training signal used to align refined embeddings with target-answer representations if supported by the paper."
+          ]
+        },
+        {
+          "claim": "Outer recursive links pass previous agents' latent embeddings as residual information to later agents.",
+          "required_results": [
+            "Explain the residual injection pattern between planner, generator, and critic agents.",
+            "Clarify whether transfer is layer-aligned or otherwise structured."
+          ]
+        },
+        {
+          "claim": "Inner and outer training can be trained or optimized separately if the paper supports that reading.",
+          "required_results": [
+            "Describe the training objectives for inner and outer links.",
+            "State any uncertainty if the paper does not fully support separate training."
+          ]
+        },
+        {
+          "claim": "The summary should cover collaboration patterns, results, and inference speed optimization.",
+          "required_results": [
+            "Include a compact collaboration-pattern table or equivalent structured explanation.",
+            "Report result highlights and speed/efficiency tradeoffs."
+          ]
+        }
+      ],
+      "expected_sections": [
+        "Core intuitions",
+        "Recursive links via residuals",
+        "Training objectives",
+        "Collaboration patterns",
+        "Results",
+        "Inference speed optimization",
+        "Theoretical backing"
+      ]
+    }
+  ]
+}
