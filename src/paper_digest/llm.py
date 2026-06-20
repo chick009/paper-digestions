@@ -119,6 +119,7 @@ class OpenRouterClient:
             model=self.settings.vision_model,
             prompt_version=prompt_version,
             max_retries=max_retries,
+            enable_fusion=False,
         )
 
     def _request_json(
@@ -131,19 +132,38 @@ class OpenRouterClient:
         model: str,
         prompt_version: str,
         max_retries: int,
+        enable_fusion: bool = True,
     ) -> ModelT:
         validation_errors: list[str] = []
         started = time.perf_counter()
         for attempt in range(max_retries + 1):
-            payload = {
+            payload: dict[str, Any] = {
                 "model": model,
                 "messages": messages,
                 "response_format": {"type": "json_object"},
             }
+            fusion_tool = self._fusion_tool(model) if enable_fusion else None
+            fusion_trace = _fusion_trace_info(fusion_tool)
+            input_summary = {
+                "attempt": attempt + 1,
+                "message_count": len(messages),
+            }
+            if fusion_trace is not None:
+                input_summary["fusion"] = fusion_trace
+                payload["tools"] = [fusion_tool]
+                if self.settings.fusion_force:
+                    payload["tool_choice"] = "required"
             if self.settings.reasoning_enabled:
                 payload["reasoning"] = {"effort": self.settings.reasoning_effort}
             if self.settings.verbose:
-                print(f"[llm] {step}: calling {model} (attempt {attempt + 1})", flush=True)
+                fusion_note = ""
+                if fusion_trace is not None:
+                    mode = "forced" if self.settings.fusion_force else "auto"
+                    fusion_note = f", fusion={mode}"
+                print(
+                    f"[llm] {step}: calling {model} (attempt {attempt + 1}{fusion_note})",
+                    flush=True,
+                )
             response = self._client.post("/chat/completions", headers=self._headers(), json=payload)
             try:
                 response.raise_for_status()
@@ -153,7 +173,7 @@ class OpenRouterClient:
                     trace.record(
                         step,
                         prompt_version=prompt_version,
-                        input_summary={"attempt": attempt + 1, "message_count": len(messages)},
+                        input_summary=input_summary,
                         output={"error": detail},
                         model=model,
                         validation_errors=[detail],
@@ -168,7 +188,7 @@ class OpenRouterClient:
                     trace.record(
                         step,
                         prompt_version=prompt_version,
-                        input_summary={"attempt": attempt + 1, "message_count": len(messages)},
+                        input_summary=input_summary,
                         output={"unexpected_response": detail},
                         model=model,
                         validation_errors=[str(exc)],
@@ -181,7 +201,7 @@ class OpenRouterClient:
                     trace.record(
                         step,
                         prompt_version=prompt_version,
-                        input_summary={"attempt": attempt + 1, "message_count": len(messages)},
+                        input_summary=input_summary,
                         output=parsed,
                         model=model,
                         token_usage=data.get("usage", {}),
@@ -204,6 +224,19 @@ class OpenRouterClient:
                     }
                 )
         raise LLMError(f"{step} failed schema validation: {validation_errors[-1]}")
+
+    def _fusion_tool(self, model: str) -> dict[str, Any] | None:
+        if not self.settings.fusion_enabled:
+            return None
+        parameters: dict[str, Any] = {
+            "analysis_models": list(self.settings.fusion_analysis_models),
+            "model": self.settings.fusion_judge_model or model,
+            "max_tool_calls": self.settings.fusion_max_tool_calls,
+            "temperature": self.settings.fusion_temperature,
+        }
+        if self.settings.reasoning_enabled:
+            parameters["reasoning"] = {"effort": self.settings.reasoning_effort}
+        return {"type": "openrouter:fusion", "parameters": parameters}
 
     def _headers(self) -> dict[str, str]:
         headers = {
@@ -292,3 +325,17 @@ def _reasoning_notes(data: dict[str, Any]) -> list[str]:
     if "reasoning_details" in message:
         notes.append("Provider returned reasoning details metadata.")
     return notes
+
+
+def _fusion_trace_info(fusion_tool: dict[str, Any] | None) -> dict[str, Any] | None:
+    if fusion_tool is None:
+        return None
+    parameters = fusion_tool.get("parameters")
+    if not isinstance(parameters, dict):
+        return None
+    return {
+        "analysis_models": parameters.get("analysis_models", []),
+        "judge_model": parameters.get("model"),
+        "max_tool_calls": parameters.get("max_tool_calls"),
+        "temperature": parameters.get("temperature"),
+    }

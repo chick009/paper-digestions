@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 from pydantic import BaseModel
@@ -31,6 +32,7 @@ class TraceWriter:
         self.trace_path = run_dir / "trace.jsonl"
         self.analysis_path = run_dir / "analysis.json"
         self._analysis: dict[str, Any] = {}
+        self._lock = Lock()
         self.run_dir.mkdir(parents=True, exist_ok=True)
 
     def record(
@@ -60,14 +62,17 @@ class TraceWriter:
             "validation_errors": validation_errors or [],
             "notes": notes or [],
         }
-        with self.trace_path.open("a", encoding="utf-8") as file:
-            file.write(json.dumps(record, ensure_ascii=False) + "\n")
+        with self._lock:
+            with self.trace_path.open("a", encoding="utf-8") as file:
+                file.write(json.dumps(record, ensure_ascii=False) + "\n")
 
     def set_analysis(self, key: str, value: Any) -> None:
-        self._analysis[key] = to_jsonable(value)
+        with self._lock:
+            self._analysis[key] = to_jsonable(value)
 
     def write_analysis(self) -> None:
-        self.analysis_path.write_text(
-            json.dumps(self._analysis, indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
+        with self._lock:
+            self.analysis_path.write_text(
+                json.dumps(self._analysis, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )

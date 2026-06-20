@@ -33,11 +33,12 @@ def run_vision_parsing(
     concurrency: int = 5,
 ) -> list[VisualExtraction]:
     page_numbers = _select_pages(extracted, max_pages=max_pages, mode=mode)
+    parse_dir = source_info.parse_root()
     if not page_numbers:
-        _write_visual_extractions(source_info.run_dir, [])
+        _write_visual_extractions(parse_dir, [])
         return []
 
-    cache_path = source_info.run_dir / "visual_extractions.json"
+    cache_path = parse_dir / "visual_extractions.json"
     cached = _read_cached_visual_extractions(cache_path, page_numbers)
     if cached is not None and not llm.settings.force_parse:
         if llm.settings.verbose:
@@ -56,7 +57,7 @@ def run_vision_parsing(
     image_paths = render_pages_to_images(
         source_info.source_pdf,
         page_numbers,
-        source_info.run_dir / "page_images",
+        parse_dir / "page_images",
     )
     results = _parse_pages_in_parallel(
         image_paths=image_paths,
@@ -66,7 +67,7 @@ def run_vision_parsing(
         concurrency=concurrency,
     )
 
-    _write_visual_extractions(source_info.run_dir, results)
+    _write_visual_extractions(parse_dir, results)
     return results
 
 
@@ -138,6 +139,12 @@ def _parse_single_page(
             trace=trace,
             prompt_version="vision-parse-page-v1",
         )
+        if llm.settings.verbose:
+            print(
+                f"[vision-parse] Page {page_number}: complete "
+                f"(confidence={result.confidence:.2f})",
+                flush=True,
+            )
         return VisualExtraction(
             page_number=page_number,
             image_path=str(image_path),
@@ -165,6 +172,11 @@ def _parse_single_page(
             validation_errors=[exc.message],
             notes=["Vision parsing was attempted but OpenRouter rejected the request."],
         )
+        if llm.settings.verbose:
+            print(
+                f"[vision-parse] Page {page_number}: failed (HTTP {exc.status_code})",
+                flush=True,
+            )
         return visual
 
 

@@ -35,6 +35,23 @@ paper-digest digest <pdf-path-or-url> \
   --output-dir output
 ```
 
+For a multi-agent blog synthesis path, run the same pipeline across several text
+models and then ask a separate synthesizer model to reconcile the drafts:
+
+```bash
+paper-digest digest <pdf-path-or-url> \
+  --multi-agent \
+  --agent-models moonshotai/kimi-k2.5,deepseek/deepseek-v4-pro,x-ai/grok-4.3 \
+  --agent-concurrency 0 \
+  --synthesizer-model x-ai/grok-4.3
+```
+
+When `--multi-agent` is enabled, each agent model runs classification,
+methodology, findings, explanations, critique, and blog drafting. The final
+`digest.md` comes from the synthesizer, while `analysis.json` keeps the candidate
+pipeline outputs for inspection. Candidate model pipelines run concurrently by
+default; set `--agent-concurrency` to a positive value to cap parallel workers.
+
 ## Evaluation Command
 
 The repository includes a two-paper evaluation manifest under `test/expectations/papers.json`.
@@ -43,7 +60,7 @@ The repository includes a two-paper evaluation manifest under `test/expectations
 export OPENROUTER_API_KEY="..."
 paper-digest evaluate test/expectations/papers.json \
   --model x-ai/grok-4.3 \
-  --vision-model openai/gpt-5.4-mini \
+  --vision-model x-ai/grok-4.3 \
   --output-dir test/evaluations \
   --vision-parse-mode all \
   --max-vision-pages 8 \
@@ -56,6 +73,42 @@ This runs the digest pipeline for each PDF and then judges the generated summari
 By default, parser outputs are reused from `extracted_paper.json` and `visual_extractions.json`
 when they match the selected source/pages. Use `--force-parse` only when you want to refresh
 those cached parser artifacts.
+
+## Fusion Comparison Command
+
+To compare two ordinary single-model runs with an OpenRouter Fusion-backed run:
+
+```bash
+paper-digest compare-fusion <pdf-path-or-url> \
+  --baseline-models x-ai/grok-4.3,deepseek/deepseek-v4-pro \
+  --fusion-outer-model x-ai/grok-4.3 \
+  --fusion-analysis-models x-ai/grok-4.3,deepseek/deepseek-v4-pro,~moonshotai/kimi-latest \
+  --output-dir output/comparisons \
+  --no-compile-pdf
+```
+
+This command keeps the custom multi-agent synthesizer path disabled. It parses the PDF
+once into a shared paper directory, then runs the existing single-agent pipeline twice
+and once with the `openrouter:fusion` server tool enabled for text steps. Each variant
+writes digest artifacts under `<paper_slug>/<variant>/`, and the side-by-side judge
+writes `comparison.json` and `comparison.md` under `output/comparisons/_reports/<paper_slug>/`.
+
+Shared paper layout for comparisons:
+
+```text
+output/comparisons/<paper_slug>/
+  source.pdf
+  extracted_paper.json
+  extracted_text.md
+  page_images/
+  visual_extractions.json
+  baseline-a/
+    digest.md
+    analysis.json
+    trace.jsonl
+  baseline-b/
+  fusion/
+```
 
 ## Artifact Layout
 

@@ -208,7 +208,24 @@ def main() -> None:
             os.environ["OPENROUTER_API_KEY"] = api_key.strip()
 
         model_raw = st.text_input("Text model override", placeholder="e.g. x-ai/grok-4.3")
-        vision_raw = st.text_input("Vision model override", placeholder="e.g. openai/gpt-5.4-mini")
+        vision_raw = st.text_input(
+            "Vision model override",
+            placeholder="e.g. x-ai/grok-4.3",
+        )
+        multi_agent = st.checkbox("Multi-agent synthesis", value=False)
+        agent_models_raw = st.text_input(
+            "Multi-agent models",
+            placeholder="moonshotai/kimi-k2.5, deepseek/deepseek-v4-pro, x-ai/grok-4.3",
+        )
+        agent_concurrency = st.number_input(
+            "Multi-agent concurrency (0 = one worker per model)",
+            min_value=0,
+            value=0,
+        )
+        synthesizer_raw = st.text_input(
+            "Synthesizer model",
+            placeholder="x-ai/grok-4.3",
+        )
 
         output_dir_str = st.text_input("Output directory", value="output")
         output_dir = Path(output_dir_str).expanduser().resolve()
@@ -261,6 +278,10 @@ def main() -> None:
                 settings = Settings.from_env(
                     model=model_raw.strip() or None,
                     vision_model=vision_raw.strip() or None,
+                    multi_agent_enabled=multi_agent,
+                    agent_models=agent_models_raw.strip() or None,
+                    agent_concurrency=int(agent_concurrency),
+                    synthesizer_model=synthesizer_raw.strip() or None,
                     output_dir=output_dir,
                     vision_parse_enabled=vision_parse,
                     vision_parse_mode=vision_mode,

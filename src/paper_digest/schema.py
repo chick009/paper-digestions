@@ -22,7 +22,13 @@ class SourceInfo(BaseModel):
     paper_slug: str
     sha256: str
     run_dir: Path
+    parse_dir: Path | None = None
     fetched_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    def parse_root(self) -> Path:
+        """Directory holding shared PDF parse and vision artifacts."""
+
+        return self.parse_dir if self.parse_dir is not None else self.run_dir
 
 
 class PageText(BaseModel):
@@ -152,6 +158,16 @@ class BlogSynthesis(BaseModel):
     references: list[str] = Field(default_factory=list)
 
 
+class ModelPipelineDraft(BaseModel):
+    model: str
+    classification: PaperClassification
+    methodology: MethodologyAnalysis
+    findings: FindingsAnalysis
+    explanations: ConceptExplanationSet
+    critiques: CritiqueSet
+    blog: BlogSynthesis
+
+
 class DigestReport(BaseModel):
     title: str
     subtitle: str | None = None
@@ -197,7 +213,7 @@ class EvaluationCase(BaseModel):
 
 class EvaluationManifest(BaseModel):
     model: str = "x-ai/grok-4.3"
-    vision_model: str = "openai/gpt-5.4-mini"
+    vision_model: str = "x-ai/grok-4.3"
     judge_model: str = "x-ai/grok-4.3"
     cases: list[EvaluationCase]
 
@@ -223,6 +239,40 @@ class JudgeEvaluation(BaseModel):
     recommended_revisions: list[str] = Field(default_factory=list)
 
 
+class RunSnapshot(BaseModel):
+    label: str
+    mode: str
+    model: str
+    run_dir: Path
+    digest_md: Path | None = None
+    analysis_json: Path | None = None
+    digest_excerpt: str = ""
+    run_config: dict[str, Any] = Field(default_factory=dict)
+    quality_check: dict[str, Any] | None = None
+
+
+class RunComparisonCriterion(BaseModel):
+    criterion: str
+    scores: dict[str, float] = Field(default_factory=dict)
+    best_run: str | None = None
+    rationale: str
+    concerns: list[str] = Field(default_factory=list)
+
+
+class RunComparisonReport(BaseModel):
+    paper_id: str
+    compared_runs: list[str] = Field(default_factory=list)
+    consensus: list[str] = Field(default_factory=list)
+    disagreements: list[str] = Field(default_factory=list)
+    unique_strengths: dict[str, list[str]] = Field(default_factory=dict)
+    blind_spots: dict[str, list[str]] = Field(default_factory=dict)
+    criteria: list[RunComparisonCriterion] = Field(default_factory=list)
+    recommended_run: str
+    recommendation_rationale: str
+    fusion_assessment: str
+    revision_suggestions: list[str] = Field(default_factory=list)
+
+
 class ArtifactPaths(BaseModel):
     run_dir: Path
     digest_md: Path
@@ -243,6 +293,7 @@ class PaperDigestState(TypedDict, total=False):
     findings: FindingsAnalysis
     explanations: ConceptExplanationSet
     critiques: CritiqueSet
+    model_pipeline_drafts: list[ModelPipelineDraft]
     report: DigestReport
     quality_check: QualityCheck
     artifacts: ArtifactPaths
